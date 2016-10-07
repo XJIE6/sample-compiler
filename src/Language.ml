@@ -9,8 +9,14 @@ module Expr =
     | Var   of string
     | Binop of string * t * t
 
-    ostap (
-      parse:
+  ostap (
+      logi:
+        l:eqsi suf:(("&&" | "!!") eqsi)* {
+           List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
+      }
+      | eqsi;
+                                  
+      eqsi:
         l:addi suf:(("<=" | "<" | "==" | "!=" | ">=" | ">") addi)* {
            List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
         }
@@ -31,7 +37,7 @@ module Expr =
       primary:
         n:DECIMAL {Const n}
       | x:IDENT   {Var   x}
-      | -"(" parse -")"
+      | -"(" logi -")"
     )
 
   end
@@ -51,9 +57,9 @@ module Stmt =
 	match d with None -> s | Some d -> Seq (s, d)
       };
       simple:
-        x:IDENT ":=" e:!(Expr.parse)     {Assign (x, e)}
+        x:IDENT ":=" e:!(Expr.logi)     {Assign (x, e)}
       | %"read"  "(" x:IDENT ")"         {Read x}
-      | %"write" "(" e:!(Expr.parse) ")" {Write e}
+      | %"write" "(" e:!(Expr.logi) ")" {Write e}
       | %"skip"                          {Skip}
     )
 

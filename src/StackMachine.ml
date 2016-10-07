@@ -30,7 +30,27 @@ module Interpreter =
 		  let y::stack' = stack in
 		  ((x, y)::state, stack', input, output)
               | S_BINOP s ->
-		  failwith "stack machine: binop"
+                 let x::y::stack' = stack in
+                 let bool x = if x == 0 then false else true in
+                 let argBool op = fun x y -> op (bool x) (bool y) in
+                 let int func = fun x y -> if func x y then 1 else 0 in
+                 let op = match s with
+                   | "+" -> (+)
+                   | "-" -> (-)
+                   | "*" -> ( * ) 
+                   | "/" -> (/)
+                   | "%" -> (mod)
+                   | "<" -> int (<)
+                   | ">" -> int (>)
+                   | "<=" -> int (<=)
+                   | ">=" -> int (>=)
+                   | "!=" -> int (!=)
+                   | "==" -> int (==)
+                   | "&&" -> int (argBool (&&))
+                   | "!!" -> int (argBool (||))
+                   | _ -> failwith "wrong operation"
+                 in
+                 (state, (op x y)::stack', input, output)
               )
               code'
       in
@@ -47,7 +67,7 @@ module Compile =
     let rec expr = function
     | Var   x -> [S_LD   x]
     | Const n -> [S_PUSH n]
-    | Binop (s, x, y) -> failwith "stack machine compiler: binop"
+    | Binop (s, x, y) -> expr y @ expr x @ [S_BINOP s] (*wrong argument sequence*)
 
     let rec stmt = function
     | Skip          -> []
