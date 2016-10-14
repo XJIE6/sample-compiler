@@ -10,8 +10,13 @@ module Expr =
     | Binop of string * t * t
 
   ostap (
-      logi:
-        l:eqsi suf:(("&&" | "!!") eqsi)* {
+      ori:
+        l:andi suf:(("!!") andi)* {
+           List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
+      }
+      | andi;
+      andi:
+        l:eqsi suf:(("&&") eqsi)* {
            List.fold_left (fun l (op, r) -> Binop (Token.repr op, l, r)) l suf
       }
       | eqsi;
@@ -37,7 +42,7 @@ module Expr =
       primary:
         n:DECIMAL {Const n}
       | x:IDENT   {Var   x}
-      | -"(" logi -")"
+      | -"(" ori -")"
     )
 
   end
@@ -57,9 +62,9 @@ module Stmt =
 	match d with None -> s | Some d -> Seq (s, d)
       };
       simple:
-        x:IDENT ":=" e:!(Expr.logi)     {Assign (x, e)}
+        x:IDENT ":=" e:!(Expr.ori)     {Assign (x, e)}
       | %"read"  "(" x:IDENT ")"         {Read x}
-      | %"write" "(" e:!(Expr.logi) ")" {Write e}
+      | %"write" "(" e:!(Expr.ori) ")" {Write e}
       | %"skip"                          {Skip}
     )
 

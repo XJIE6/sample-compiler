@@ -141,16 +141,18 @@ module Compile =
                  |"*" -> [X86Mul (r, eax)]
                  |"/" -> [X86Cltd; X86Div r]
                  |"%" -> [X86Cltd; X86Div r; X86Mov (edx, eax)]
+                 |("&&"|"!!") -> [X86Mov (L 0, ebx); X86Cmp (eax, ebx); X86Mov (L 0, eax); X86SetNE eax; X86Cmp(r, ebx); X86SetNE ebx]@
+                                   (match op with
+                                    |"&&" -> [X86And (ebx, eax)]
+                                    |"!!" -> [X86Or  (ebx, eax)])
                  | _  -> [X86Cmp (r, eax); X86Mov (L 0, eax)]@
                            match op with
                            |"==" -> [X86SetE  eax]
                            |"!=" -> [X86SetNE eax]
                            |"<"  -> [X86SetL  eax]
                            |">"  -> [X86SetG  eax]
-                           |"<=" -> [X86SetL  eax]
+                           |"<=" -> [X86SetLE eax]
                            |">=" -> [X86SetGE eax]
-                           |"&&" -> [X86SetNZ eax]
-                           |"!!" -> [X86SetNZ eax]
                  )@[X86Mov (eax, r)]
 	    in
 	    x86code @ compile stack' code'
