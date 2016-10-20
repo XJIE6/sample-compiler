@@ -43,7 +43,7 @@ module Expr =
         n:DECIMAL {Const n}
       | x:IDENT   {Var   x}
       | -"(" ori -")"
-    )
+)
 
   end
 
