@@ -49,6 +49,9 @@ type instr =
 | X86Ret
 | X86Cltd
 | X86Call of string
+| X86Jmp  of string
+| X86CJmp of string * string
+| X86Lbl  of string
 
 module S = Set.Make (String)
 
@@ -102,9 +105,11 @@ module Show =
     | X86Push  s       -> Printf.sprintf "\tpushl\t%s"      (opnd s )
     | X86Pop   s       -> Printf.sprintf "\tpopl\t%s"       (opnd s )
     | X86Ret           -> "\tret"
-    | X86Call  p       -> Printf.sprintf "\tcall\t%s" p
+    | X86Call  s       -> Printf.sprintf "\tcall\t%s"       s
     | X86Cltd          -> Printf.sprintf "\tcltd"
-
+    | X86Jmp   s       -> Printf.sprintf "\tjmp\t%s"        s
+    | X86CJmp (c, s)   -> Printf.sprintf "\tj%s\t%s"        c s
+    | X86Lbl   s       -> Printf.sprintf "\t%s:"            s
   end
 
 module Compile =
@@ -132,6 +137,10 @@ module Compile =
 		  env#local x;
 		  let s::stack' = stack in
 		  (stack', [X86Mov (s, eax); X86Mov (eax, M x)])
+              | S_JMP  s -> (stack,[X86Jmp  s])
+              | S_CJMP (c, s) -> let x::stack' = stack in
+                                 (stack',[X86Cmp (L 0, x); X86CJmp (c, s)])
+              | S_LBL  s -> (stack,[X86Lbl  s])
 	      | S_BINOP op ->
                  let l::r::stack' = stack in
                  r::stack', [X86Mov (l, eax)]@
@@ -198,4 +207,4 @@ let build stmt name =
   let outf = open_out (Printf.sprintf "%s.s" name) in
   Printf.fprintf outf "%s" (compile stmt);
   close_out outf;
-  ignore (Sys.command (Printf.sprintf "gcc -m32 -o %s ../../runtime/runtime.o %s.s" name name))
+  ignore (Sys.command (Printf.sprintf "gcc -m32 -o %s $RC_RUNTIME/runtime.o %s.s" name name))

@@ -3,11 +3,7 @@ module Expr =
 
     open Language.Expr
 
-    let rec eval state = function
-    | Const  n -> n
-    | Var    x -> state x
-    | Binop  (op, l, r) ->
-       let (left, right) = (eval state l, eval state r) in
+    let eval' left right op =
        match op with
        |"+" -> left + right
        |"-" -> left - right
@@ -22,7 +18,12 @@ module Expr =
        |"!=" -> if left != right then 1 else 0
        |"&&" -> if left != 0 && right != 0 then 1 else 0
        |"!!" -> if left != 0 || right != 0 then 1 else 0
- 
+                                                         
+    let rec eval state = function
+      | Const n -> n
+      | Var   x -> state x
+      | Binop (op, l, r) -> eval' (eval state l) (eval state r) op                   
+     
   end
   
 module Stmt =
@@ -41,6 +42,8 @@ module Stmt =
 	| Read    x     ->
 	    let y::input' = input in
 	    ((x, y) :: state, input', output)
+        | If(e, s1, s2) -> if (Expr.eval state' e) != 0 then eval' c s1 else eval' c s2
+        | While(e, s1) -> if (Expr.eval state' e) != 0 then eval' (eval' c s1) (While (e, s1)) else c
       in
       let (_, _, result) = eval' ([], input, []) stmt in
       result

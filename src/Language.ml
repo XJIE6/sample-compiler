@@ -56,6 +56,8 @@ module Stmt =
     | Write  of Expr.t
     | Assign of string * Expr.t
     | Seq    of t * t
+    | If     of Expr.t * t * t
+    | While  of Expr.t * t
 
     ostap (
       parse: s:simple d:(-";" parse)? {
@@ -66,6 +68,8 @@ module Stmt =
       | %"read"  "(" x:IDENT ")"         {Read x}
       | %"write" "(" e:!(Expr.ori) ")" {Write e}
       | %"skip"                          {Skip}
+      | %"if" c:!(Expr.ori) "then" s1:(parse) "else" s2:(parse) "fi" {If(c, s1, s2)}
+      | %"while" c:!(Expr.ori) "do" s:(parse) "od" {While(c, s)}
     )
 
   end

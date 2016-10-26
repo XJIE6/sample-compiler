@@ -5,56 +5,62 @@ type i =
 | S_LD    of string
 | S_ST    of string
 | S_BINOP of string
+| S_JMP   of string
+| S_CJMP  of string*string
+| S_LBL   of string
+               
 
 module Interpreter =
   struct
 
+    open Interpreter.Expr
+
     let run input code =
-      let rec run' (state, stack, input, output) code =
-	match code with
+      let jmp s =
+        let rec jmp' s commands =
+          match  commands with
+          | [] -> failwith ("no such lable: " ^ s)
+          | cmd::commands' ->
+             match cmd with
+             | S_LBL s' when s = s' -> commands'
+             | _  -> jmp' s commands'
+        in jmp' s code
+      in 
+      let rec run' (state, stack, input, output, code) =
+	(match code with
 	| []       -> output
 	| i::code' ->
 	    run'
               (match i with
               | S_READ ->
 		  let y::input' = input in
-		  (state, y::stack, input', output)
+		  (state, y::stack, input', output, code')
               | S_WRITE ->
 		  let y::stack' = stack in
-		  (state, stack', input, output @ [y])
+		  (state, stack', input, output@[y], code')
               | S_PUSH n ->
-		  (state, n::stack, input, output)
+		  (state, n::stack, input, output, code')
               | S_LD x ->
-		  (state, (List.assoc x state)::stack, input, output)
+		  (state, (List.assoc x state)::stack, input, output, code')
               | S_ST x ->
 		  let y::stack' = stack in
-		  ((x, y)::state, stack', input, output)
+		  ((x, y)::state, stack', input, output, code')
               | S_BINOP s ->
                  let x::y::stack' = stack in
-                 let bool x = if x == 0 then false else true in
-                 let argBool op = fun x y -> op (bool x) (bool y) in
-                 let int func = fun x y -> if func x y then 1 else 0 in
-                 let op = match s with
-                   | "+" -> (+)
-                   | "-" -> (-)
-                   | "*" -> ( * ) 
-                   | "/" -> (/)
-                   | "%" -> (mod)
-                   | "<" -> int (<)
-                   | ">" -> int (>)
-                   | "<=" -> int (<=)
-                   | ">=" -> int (>=)
-                   | "!=" -> int (!=)
-                   | "==" -> int (==)
-                   | "&&" -> int (argBool (&&))
-                   | "!!" -> int (argBool (||))
-                   | _ -> failwith "wrong operation"
-                 in
-                 (state, (op x y)::stack', input, output)
+                 (state, (Interpreter.Expr.eval' x y s)::stack', input, output, code')
+              | S_JMP s -> (state, stack, input, output, jmp s)
+              | S_CJMP (c, s) -> 
+                 let x::stack' = stack in
+                 (match c with
+                 |"z"  when x =  0 -> (state, stack, input, output, jmp s) 
+                 |"nz" when x <> 0 -> (state, stack, input, output, jmp s)
+                 | _               -> (state, stack, input, output, code')
+                 )
+              | S_LBL s -> (state, stack, input, output, code')
               )
-              code'
+          )
       in
-      run' ([], [], input, []) code
+      run' ([], [], input, [], code)
 	
   end
 
@@ -69,11 +75,25 @@ module Compile =
     | Const n -> [S_PUSH n]
     | Binop (s, x, y) -> expr y @ expr x @ [S_BINOP s] (*wrong argument sequence*)
 
-    let rec stmt = function
-    | Skip          -> []
-    | Assign (x, e) -> expr e @ [S_ST x]
-    | Read    x     -> [S_READ; S_ST x]
-    | Write   e     -> expr e @ [S_WRITE]
-    | Seq    (l, r) -> stmt l @ stmt r
+    let counter =
+      let count = ref (0) in
+      fun () ->
+      incr count;
+      !count
+       
+    let rec  stmt = function
+    | Skip           -> []
+    | Assign  (x, e) -> expr e @ [S_ST x]
+    | Read     x     -> [S_READ; S_ST x]
+    | Write    e     -> expr e @ [S_WRITE]
+    | Seq     (l, r) -> stmt l @ stmt r
+    | If (c, s1, s2) ->
+       let lbl1 = ("L" ^ string_of_int(counter())) in
+       let lbl2 = ("L" ^ string_of_int(counter())) in
+       expr c @ [S_CJMP ("z", lbl1)] @ stmt s1 @ [S_JMP lbl2; S_LBL lbl1] @ stmt s2 @ [S_LBL lbl2]
+    | While  (c, s1) ->
+       let lbl1 = "L" ^ string_of_int(counter()) in
+       let lbl2 = "L" ^ string_of_int(counter()) in
+       [S_LBL lbl1] @ expr c @ [S_CJMP ("z", lbl2)] @ stmt s1 @ [S_JMP lbl1; S_LBL lbl2]
 
   end
