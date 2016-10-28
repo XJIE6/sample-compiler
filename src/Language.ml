@@ -58,6 +58,7 @@ module Stmt =
     | Seq    of t * t
     | If     of Expr.t * t * t
     | While  of Expr.t * t
+    | Repeat of t * Expr.t
 
     ostap (
       parse: s:simple d:(-";" parse)? {
@@ -68,8 +69,17 @@ module Stmt =
       | %"read"  "(" x:IDENT ")"         {Read x}
       | %"write" "(" e:!(Expr.ori) ")" {Write e}
       | %"skip"                          {Skip}
-      | %"if" c:!(Expr.ori) "then" s1:(parse) "else" s2:(parse) "fi" {If(c, s1, s2)}
-      | %"while" c:!(Expr.ori) "do" s:(parse) "od" {While(c, s)}
+      | %"if" c:!(Expr.ori)
+        %"then" s:(parse)
+        elif:(%"elif" !(Expr.ori) %"then" parse)*
+        els:(%"else" parse)? %"fi"
+        {If(c, s, List.fold_right (fun (c, s) elif -> If (c, s, elif)) elif (match els with
+                                                                             |None   -> Skip
+                                                                             |Some s -> s))}
+      | %"while" c:!(Expr.ori) %"do" s:(parse) %"od" {While(c, s)}
+      | %"repeat" s:(parse) %"until" c:!(Expr.ori) {Repeat(s, c)}
+      | %"for" s1:(parse) "," c:!(Expr.ori) "," s2:(parse) %"do" s:(parse) %"od"
+        {Seq(s1, While(c, Seq(s, s2)))}
     )
 
   end
