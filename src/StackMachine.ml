@@ -95,5 +95,7 @@ module Compile =
        let lbl1 = "L" ^ string_of_int(counter()) in
        let lbl2 = "L" ^ string_of_int(counter()) in
        [S_LBL lbl1] @ expr c @ [S_CJMP ("z", lbl2)] @ stmt s1 @ [S_JMP lbl1; S_LBL lbl2]
-
+    | Repeat (s, c) ->
+       let lbl  = "L" ^ string_of_int(counter()) in
+       [S_LBL lbl] @ stmt s @ expr c @ [S_CJMP ("z", lbl)]
   end

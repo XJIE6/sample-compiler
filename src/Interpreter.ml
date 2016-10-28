@@ -43,7 +43,8 @@ module Stmt =
 	    let y::input' = input in
 	    ((x, y) :: state, input', output)
         | If(e, s1, s2) -> if (Expr.eval state' e) != 0 then eval' c s1 else eval' c s2
-        | While(e, s1) -> if (Expr.eval state' e) != 0 then eval' (eval' c s1) (While (e, s1)) else c
+        | While(e, s1)  -> if (Expr.eval state' e) != 0 then eval' (eval' c s1) (While (e, s1)) else c
+        | Repeat(s, e)  -> eval' (eval' c s) (While (Binop("==", e, Const 0), s))
       in
       let (_, _, result) = eval' ([], input, []) stmt in
       result
