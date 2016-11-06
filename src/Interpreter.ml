@@ -4,20 +4,26 @@ module Expr =
     open Language.Expr
 
     let eval' left right op =
-       match op with
-       |"+" -> left + right
-       |"-" -> left - right
-       |"*" -> left * right
-       |"/" -> left / right
-       |"%" -> left mod right
-       |">" -> if left > right then 1 else 0
-       |"<" -> if left < right then 1 else 0
-       |">=" -> if left >= right then 1 else 0
-       |"<=" -> if left <= right then 1 else 0
-       |"==" -> if left == right then 1 else 0
-       |"!=" -> if left != right then 1 else 0
-       |"&&" -> if left != 0 && right != 0 then 1 else 0
-       |"!!" -> if left != 0 || right != 0 then 1 else 0
+      let int   f = fun x y -> if f x y then 1 else 0 in
+      let bool  f =
+        let bool' x = if x == 0 then true else false in
+        fun x y -> f (bool' x) (bool' y)
+      in
+       (match op with
+       |"+" -> (+)
+       |"-" -> (-)
+       |"*" -> ( * )
+       |"/" -> (/)
+       |"%" -> (mod)
+       |">" -> int (>)
+       |"<" -> int (<)
+       |">=" -> int (>=)
+       |"<=" -> int (<=)
+       |"==" -> int (==)
+       |"!=" -> int (!=)
+       |"&&" -> int @@ bool (&&)
+       |"!!" -> int @@ bool (||)
+       ) left right
                                                          
     let rec eval state = function
       | Const n -> n

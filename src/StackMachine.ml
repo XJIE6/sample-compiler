@@ -46,7 +46,7 @@ module Interpreter =
 		  let y::stack' = stack in
 		  ((x, y)::state, stack', input, output, code')
               | S_BINOP s ->
-                 let x::y::stack' = stack in
+                 let y::x::stack' = stack in
                  (state, (Interpreter.Expr.eval' x y s)::stack', input, output, code')
               | S_JMP s -> (state, stack, input, output, jmp s)
               | S_CJMP (c, s) -> 
@@ -73,7 +73,7 @@ module Compile =
     let rec expr = function
     | Var   x -> [S_LD   x]
     | Const n -> [S_PUSH n]
-    | Binop (s, x, y) -> expr y @ expr x @ [S_BINOP s] (*wrong argument sequence*)
+    | Binop (s, x, y) -> expr x @ expr y @ [S_BINOP s]
 
     let counter =
       let count = ref (0) in
