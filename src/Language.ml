@@ -4,10 +4,11 @@ open Matcher
 module Expr =
   struct
 
-    type t =
+  type t =
     | Const of int
     | Var   of string
     | Binop of string * t * t
+    | Call  of string * t list
 
   ostap (
       ori:
@@ -41,7 +42,11 @@ module Expr =
 
       primary:
         n:DECIMAL {Const n}
-      | x:IDENT   {Var   x}
+      | x:IDENT args:(-"(" !(Util.list0 ori) -")")?
+                                                    { match args with
+                                                      | None -> Var x
+                                                      | Some args -> Call (x, args)
+                                                    }
       | -"(" ori -")"
 )
 
@@ -59,16 +64,22 @@ module Stmt =
     | If     of Expr.t * t * t
     | While  of Expr.t * t
     | Repeat of t * Expr.t
+    | Run   of string * Expr.t list
+    | Return of Expr.t
 
     ostap (
       parse: s:simple d:(-";" parse)? {
 	match d with None -> s | Some d -> Seq (s, d)
-      };
+                                    };
+      expr:!(Expr.ori);
       simple:
-        x:IDENT ":=" e:!(Expr.ori)     {Assign (x, e)}
-      | %"read"  "(" x:IDENT ")"         {Read x}
+      x:IDENT s:(":=" e:expr {Assign (x, e)} |
+                 "(" args:!(Util.list0 expr) ")" {Run (x, args)}
+                ) {s}
+      | %"read"  "(" x:IDENT ")"       {Read x}
       | %"write" "(" e:!(Expr.ori) ")" {Write e}
-      | %"skip"                          {Skip}
+      | %"skip"                        {Skip}
+      | %"return" e:!(Expr.ori)        {Return e}
       | %"if" c:!(Expr.ori)
         %"then" s:(parse)
         elif:(%"elif" !(Expr.ori) %"then" parse)*
@@ -82,4 +93,25 @@ module Stmt =
         {Seq(s1, While(c, Seq(s, s2)))}
     )
 
+  end
+
+module Def = 
+  struct
+
+    type t = string * (string list * Stmt.t)
+
+    ostap (
+      param: IDENT;                    
+      parse: %"fun" name: IDENT "(" args: !(Util.list0 param) ")" %"begin" body: !(Stmt.parse) %"end" {(name, (args, body))}
+    )
+  end
+
+module Unit =
+  struct
+
+    type t = Def.t list * Stmt.t
+
+    ostap (
+      parse: !(Def.parse)* !(Stmt.parse)
+    )
   end

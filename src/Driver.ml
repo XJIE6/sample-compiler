@@ -14,7 +14,7 @@ let parse infile =
        ] s
      end
     )
-    (ostap (!(Language.Stmt.parse) -EOF))
+    (ostap (!(Language.Unit.parse) -EOF))
 
 let main = ()
   try
@@ -25,28 +25,23 @@ let main = ()
       | _    -> `Int, Sys.argv.(1)
     in
     match parse filename with
-    | `Ok stmt -> 
+    | `Ok (def, stmt) -> 
 	(match mode with
 	 | `X86 ->
              let basename = Filename.chop_suffix filename ".expr" in 
 	     X86.build stmt basename
 	 | _ ->
-	     let rec read acc =
-	       try
-		 let r = read_int () in
-		 Printf.printf "> ";
-		 read (acc @ [r]) 
-               with End_of_file -> acc
-	     in
-	     let input = read [] in
-	     let output =
-	       match mode with
-	       | `SM -> StackMachine.Interpreter.run input (StackMachine.Compile.stmt stmt)
-	       | _   -> Interpreter.Stmt.eval input stmt
-	     in
-	     List.iter (fun i -> Printf.printf "%d\n" i) output
+            let read () =
+              Printf.printf "> ";
+              read_int()
+            in
+            let write x =
+              Printf.printf "%d\n" x in
+	    match mode with
+	       | `SM -> StackMachine.Interpreter.run read write @@ StackMachine.Compile.stmt stmt
+	       | _   -> Interpreter.Stmt.eval read write def stmt
 	)
 
     | `Fail er -> Printf.eprintf "%s" er
-  with 
+    with 
   | Invalid_argument _ -> Printf.printf "Usage: rc.byte <name.expr>"

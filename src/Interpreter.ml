@@ -25,11 +25,17 @@ module Expr =
        |"!!" -> int @@ bool (||)
        ) left right
                                                          
-    let rec eval state = function
+    let rec eval ((state, def, stmt_eval) as c) = function
       | Const n -> n
-      | Var   x -> state x
-      | Binop (op, l, r) -> eval' (eval state l) (eval state r) op                   
-     
+      | Var   x -> List.assoc x state
+      | Binop (op, l, r) -> eval' (eval c l)  (eval c r) op
+      | Call (n, p) -> let (names, body) = List.assoc n def in
+                       let args = List.map (fun x -> eval c x) p in
+                       let fun_state  = List.map2 (fun x y -> (x, y)) names args in
+                       let (fun_state', ret) = stmt_eval fun_state body in
+                       match ret with
+                       | `Return e -> eval (fun_state, def, stmt_eval) e
+                       | _ -> failwith "no return" 
   end
   
 module Stmt =
@@ -37,22 +43,30 @@ module Stmt =
 
     open Language.Stmt
 
-    let eval input stmt =
-      let rec eval' ((state, input, output) as c) stmt =
-	let state' x = List.assoc x state in
+    let eval read write def stmt =
+      let rec eval' state stmt =
+        let expr_eval = Expr.eval (state, def, eval') in
 	match stmt with
-	| Skip          -> c
-	| Seq    (l, r) -> eval' (eval' c l) r
-	| Assign (x, e) -> ((x, Expr.eval state' e) :: state, input, output)
-	| Write   e     -> (state, input, output @ [Expr.eval state' e])
-	| Read    x     ->
-	    let y::input' = input in
-	    ((x, y) :: state, input', output)
-        | If(e, s1, s2) -> if (Expr.eval state' e) != 0 then eval' c s1 else eval' c s2
-        | While(e, s1)  -> if (Expr.eval state' e) != 0 then eval' (eval' c s1) (While (e, s1)) else c
-        | Repeat(s, e)  -> eval' (eval' c s) (While (Binop("==", e, Const 0), s))
+	| Skip          -> (state, `Continue)
+	| Seq    (l, r) -> let (state', ret) as c = eval' state l in
+                           (match ret with
+                           | `Continue -> eval' state' r
+                           | _ -> c)
+	| Assign (x, e) -> ((x, expr_eval e) :: state, `Contunue)
+	| Write   e     -> write @@ expr_eval e;
+                           (state, `Continue)
+	| Read    x     -> let y = read() in
+                           ((x, y) :: state, `Continue)
+        | If(e, s1, s2) -> if (expr_eval e) != 0 then eval' state s1 else eval' state s2
+        | While(e, s1)  -> if (expr_eval e) != 0 then eval' state @@ Seq (s1, While (e, s1)) else (state, `Continue)
+        | Repeat(s, e)  -> eval' state @@ Seq (s, (While (Binop("==", e, Const 0), s)))
+        | Run(n, p)     -> expr_eval @@ Call (n, p);
+                           (state, `Continue)
+        | Return v      -> (state, `Return v)
       in
-      let (_, _, result) = eval' ([], input, []) stmt in
-      result
+      let (_, ret) = eval' ([]) stmt in ()
+      (*match ret with
+      | `Continue -> ()
+      | _ -> failwith "nonzero return code"*)
 
   end

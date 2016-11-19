@@ -15,7 +15,7 @@ module Interpreter =
 
     open Interpreter.Expr
 
-    let run input code =
+    let run read write code =
       let jmp s =
         let rec jmp' s commands =
           match  commands with
@@ -26,41 +26,41 @@ module Interpreter =
              | _  -> jmp' s commands'
         in jmp' s code
       in 
-      let rec run' (state, stack, input, output, code) =
+      let rec run' (state, stack, code) =
 	(match code with
-	| []       -> output
+	| []       -> ()
 	| i::code' ->
 	    run'
               (match i with
-              | S_READ ->
-		  let y::input' = input in
-		  (state, y::stack, input', output, code')
+              | S_READ  -> let y = read() in
+                            (state, y::stack, code')
               | S_WRITE ->
-		  let y::stack' = stack in
-		  (state, stack', input, output@[y], code')
+		 let y::stack' = stack in
+                 write (y);
+		 (state, stack', code')
               | S_PUSH n ->
-		  (state, n::stack, input, output, code')
+		  (state, n::stack, code')
               | S_LD x ->
-		  (state, (List.assoc x state)::stack, input, output, code')
+		  (state, (List.assoc x state)::stack, code')
               | S_ST x ->
 		  let y::stack' = stack in
-		  ((x, y)::state, stack', input, output, code')
+		  ((x, y)::state, stack', code')
               | S_BINOP s ->
                  let y::x::stack' = stack in
-                 (state, (Interpreter.Expr.eval' x y s)::stack', input, output, code')
-              | S_JMP s -> (state, stack, input, output, jmp s)
+                 (state, (Interpreter.Expr.eval' x y s)::stack', code')
+              | S_JMP s -> (state, stack, jmp s)
               | S_CJMP (c, s) -> 
                  let x::stack' = stack in
                  (match c with
-                 |"z"  when x =  0 -> (state, stack, input, output, jmp s) 
-                 |"nz" when x <> 0 -> (state, stack, input, output, jmp s)
-                 | _               -> (state, stack, input, output, code')
+                 |"z"  when x =  0 -> (state, stack, jmp s) 
+                 |"nz" when x <> 0 -> (state, stack, jmp s)
+                 | _               -> (state, stack, code')
                  )
-              | S_LBL s -> (state, stack, input, output, code')
+              | S_LBL s -> (state, stack, code')
               )
           )
       in
-      run' ([], [], input, [], code)
+      run' ([], [], code)
 	
   end
 
