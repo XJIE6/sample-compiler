@@ -64,7 +64,7 @@ module Stmt =
     | If     of Expr.t * t * t
     | While  of Expr.t * t
     | Repeat of t * Expr.t
-    | Run   of string * Expr.t list
+    | Run    of string * Expr.t list
     | Return of Expr.t
 
     ostap (
@@ -76,8 +76,8 @@ module Stmt =
       x:IDENT s:("(" args:!(Util.list0 expr) ")" {Run (x, args)} |
                 ":=" e:expr {Assign (x, e)}
                 ) {s}
-      | %"read"  "(" x:IDENT ")"       {Read x}
-      | %"write" "(" e:expr ")" {Write e}
+      (* | %"read"  "(" x:IDENT ")"       {Read x}
+      | %"write" "(" e:expr ")" {Write e} *)
       | %"skip"                        {Skip}
       | %"return" e:expr        {Return e}
       | %"if" c:expr

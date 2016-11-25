@@ -5,7 +5,7 @@ let parse infile =
   Util.parse
     (object
        inherit Matcher.t s
-       inherit Util.Lexers.ident ["read"; "write"; "skip"; "if"; "fi"; "elif"; "else"; "while"; "do"; "od"; "repeat"; "until"; "for"] s
+       inherit Util.Lexers.ident ["skip"; "if"; "fi"; "elif"; "else"; "while"; "do"; "od"; "repeat"; "until"; "for"] s
        inherit Util.Lexers.decimal s
        inherit Util.Lexers.skip [
 	 Matcher.Skip.whitespaces " \t\n";
@@ -31,15 +31,17 @@ let main = ()
              let basename = Filename.chop_suffix filename ".expr" in 
 	     X86.build stmt basename
 	 | _ ->
-            let read () =
-              Printf.printf "> ";
-              read_int()
-            in
-            let write x =
-              Printf.printf "%d\n" x in
+        let builtins = [("read",  fun arr -> if arr = [] then 
+                                           (Printf.printf "> ";
+                                           read_int())
+                                           else failwith "params in read");
+                        ("write", fun arr -> match arr with
+                                            | x::[] -> (Printf.printf "%d\n" x; 0)
+                                            | []   -> failwith "no args in write"
+                                            | _    -> failwith "too many args in write")] in
 	    match mode with
-	       | `SM -> StackMachine.Interpreter.run read write @@ StackMachine.Compile.stmt stmt
-	       | _   -> Interpreter.Stmt.eval read write def stmt
+	       (* | `SM -> StackMachine.Interpreter.run builtins @@ StackMachine.Compile.stmt stmt
+	        *)| _   -> Interpreter.Stmt.eval builtins def stmt
 	)
 
     | `Fail er -> Printf.eprintf "%s" er
