@@ -44,8 +44,8 @@ module Expr =
         n:DECIMAL {Const n}
       | x:IDENT args:(-"(" !(Util.list0 ori) -")")?
                                                     { match args with
-                                                      | None -> Var x
                                                       | Some args -> Call (x, args)
+                                                      | None -> Var x
                                                     }
       | -"(" ori -")"
 )
@@ -73,23 +73,23 @@ module Stmt =
                                     };
       expr:!(Expr.ori);
       simple:
-      x:IDENT s:(":=" e:expr {Assign (x, e)} |
-                 "(" args:!(Util.list0 expr) ")" {Run (x, args)}
+      x:IDENT s:("(" args:!(Util.list0 expr) ")" {Run (x, args)} |
+                ":=" e:expr {Assign (x, e)}
                 ) {s}
       | %"read"  "(" x:IDENT ")"       {Read x}
-      | %"write" "(" e:!(Expr.ori) ")" {Write e}
+      | %"write" "(" e:expr ")" {Write e}
       | %"skip"                        {Skip}
-      | %"return" e:!(Expr.ori)        {Return e}
-      | %"if" c:!(Expr.ori)
+      | %"return" e:expr        {Return e}
+      | %"if" c:expr
         %"then" s:(parse)
-        elif:(%"elif" !(Expr.ori) %"then" parse)*
+        elif:(%"elif" expr %"then" parse)*
         els:(%"else" parse)? %"fi"
         {If(c, s, List.fold_right (fun (c, s) elif -> If (c, s, elif)) elif (match els with
                                                                              |None   -> Skip
                                                                              |Some s -> s))}
-      | %"while" c:!(Expr.ori) %"do" s:(parse) %"od" {While(c, s)}
-      | %"repeat" s:(parse) %"until" c:!(Expr.ori) {Repeat(s, c)}
-      | %"for" s1:(parse) "," c:!(Expr.ori) "," s2:(parse) %"do" s:(parse) %"od"
+      | %"while" c:expr %"do" s:(parse) %"od" {While(c, s)}
+      | %"repeat" s:(parse) %"until" c:expr {Repeat(s, c)}
+      | %"for" s1:(parse) "," c:expr "," s2:(parse) %"do" s:(parse) %"od"
         {Seq(s1, While(c, Seq(s, s2)))}
     )
 
