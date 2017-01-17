@@ -1,0 +1,13 @@
+fun fib (n) begin
+  if n <= 2 
+     then return 1 
+     else return fib (n-1) + fib (n-2)
+  fi   
+end
+
+fun nothing (x) begin
+	return 0
+end
+
+n := read ();
+write (fib (n))

@@ -1,14 +1,20 @@
 open Ostap 
 open Matcher
 
+type var =
+| Int of int
+| String of string
+
 module Expr =
   struct
 
   type t =
-    | Const of int
-    | Var   of string
-    | Binop of string * t * t
-    | Call  of string * t list
+    | Const   of int
+    | Var     of string
+    | Ptr     of string
+    | Binop   of string * t * t
+    | Call    of string * t list
+    | EvalPtr of string * t list
 
   ostap (
       ori:
@@ -42,10 +48,12 @@ module Expr =
 
       primary:
         n:DECIMAL {Const n}
-      | x:IDENT args:(-"(" !(Util.list0 ori) -")")?
-                                                    { match args with
-                                                      | Some args -> Call (x, args)
-                                                      | None -> Var x
+      | "&" x:IDENT {Ptr x}
+      | x:IDENT arrow:("->")? args:(-"(" !(Util.list0 ori) -")")?
+                                                    { match (arrow, args) with
+                                                      | (Some _, Some args) -> EvalPtr (x, args)
+                                                      | (None, Some args) -> Call (x, args)
+                                                      | (None, None) -> Var x
                                                     }
       | -"(" ori -")"
 )
@@ -57,8 +65,6 @@ module Stmt =
 
     type t =
     | Skip
-    | Read   of string
-    | Write  of Expr.t
     | Assign of string * Expr.t
     | Seq    of t * t
     | If     of Expr.t * t * t
@@ -76,8 +82,6 @@ module Stmt =
       x:IDENT s:("(" args:!(Util.list0 expr) ")" {Run (x, args)} |
                 ":=" e:expr {Assign (x, e)}
                 ) {s}
-      (* | %"read"  "(" x:IDENT ")"       {Read x}
-      | %"write" "(" e:expr ")" {Write e} *)
       | %"skip"                        {Skip}
       | %"return" e:expr        {Return e}
       | %"if" c:expr

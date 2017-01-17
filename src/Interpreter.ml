@@ -1,4 +1,5 @@
 open Language.Expr
+open Language
 
 type ret = 
 | Continue 
@@ -31,22 +32,35 @@ module Expr =
                                                          
     let rec eval ((state, builtins, def, stmt_eval) as c) = function
       | Const n -> n
-      | Var   x -> List.assoc x state
+      | Var   x -> (match List.assoc x state with
+                    | Int x -> x
+                    | String _ -> failwith "no such var, only ptr")
+      | EvalPtr (n, p) -> (eval c @@ Call ((match List.assoc n state with
+                                          | String name -> name
+                                          | Int _ -> failwith "no such ptr, only var"), p))
       | Binop (op, l, r) -> eval' (eval c l)  (eval c r) op
-      | Call (n, p) -> let args = List.map (fun x -> eval c x) p in
-                      try 
-                      (let (names, body) = List.assoc n def in
-                       let fun_state  = List.map2 (fun x y -> (x, y)) names args in
-                       let (fun_state', ret) = stmt_eval fun_state body in
-                       match ret with
-                       | Return e -> eval (fun_state', builtins, def, stmt_eval) e
-                       | _ -> failwith "no return")
-                      with Not_found -> 
-                      (let f = List.assoc n builtins in
-                        f args)
+      | Call (n, p) -> (let rec get_state = function
+                          | (state, [], []) -> state
+                          | (state, par::p', name::names') ->  get_state (match par with
+                                                                                | Ptr ptr -> ((name, String ptr)::state, p', names')
+                                                                                | e -> ((name, Int (eval c e))::state, p', names')
+                                                                              )
+                        in
+                        try 
+                          (let (names, body) = List.assoc n def in
+                           let fun_state  = get_state ([], p, names) in
+                           let (fun_state', ret) = stmt_eval fun_state body in
+                           match ret with
+                           | Return e -> eval (fun_state', builtins, def, stmt_eval) e
+                           | _ -> failwith "no return"
+                          )
+                        with Not_found -> 
+                          let f = List.assoc n builtins in
+                            f @@ List.map (fun e -> eval c e) p
+                        )
+      | _ -> failwith "no, here"
 
   end
-  
 module Stmt =
   struct
 
@@ -61,7 +75,9 @@ module Stmt =
                                    (match ret with
                                    | Continue -> eval' state' r
                                    | _ -> c)
-        	| Assign (x, e) -> ((x, expr_eval e) :: state, Continue)
+        	| Assign (x, e) -> (match e with
+                          | Ptr p -> ((x, String p) :: state, Continue)
+                          | _     -> ((x, Int (expr_eval e)) :: state, Continue))
           | If(e, s1, s2) ->
             if   (expr_eval e) != 0
             then eval' state s1
@@ -75,7 +91,7 @@ module Stmt =
                              (state, Continue)
           | Return v      -> (state, Return v)
         in
-        let (_, ret) = eval' ([]) stmt in
+        let (_, ret) = eval' [] stmt in
         match ret with
         | Continue -> ()
         | _ -> failwith "nonzero return code"

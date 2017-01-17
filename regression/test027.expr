@@ -1,0 +1,20 @@
+fun A (m, n, l)
+begin
+  return l->(m, n)
+end
+
+fun B (m, n)
+begin
+	return m + n
+end
+
+fun C (m, n)
+begin
+	return m - n
+end
+
+m := read();
+n := read();
+x := &A;
+write (x->(m, n, &B));
+write (x->(m, n, &C))
