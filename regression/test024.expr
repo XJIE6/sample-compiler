@@ -5,9 +5,5 @@ fun fib (n) begin
   fi   
 end
 
-fun nothing (x) begin
-	return 0
-end
-
 n := read ();
 write (fib (n))
