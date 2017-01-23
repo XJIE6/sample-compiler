@@ -14,9 +14,6 @@ let x86regs = [|
 let x86byteRegs = [|
     "%al";
     "%bl";
-    "%cl";
-    "%dl";
-    "%sl";
     "%dl";
   |]
 
@@ -117,27 +114,27 @@ module Compile =
 
     let stack_program env code =
       let rec compile stack code =
-	      match code with
-	       | []       -> []
-	       | i::code' ->
-	         let (stack', x86code) =
+        match code with
+         | []       -> []
+         | i::code' ->
+           let (stack', x86code) =
               match i with
               | S_PUSH n ->
-		            let s = allocate env stack in
-		              (s::stack, [X86Mov (L n, s)])
+                let s = allocate env stack in
+                  (s::stack, [X86Mov (L n, s)])
               | S_SPUSH  ->
                 let s::stack' = stack in (stack', [X86Mov (s, eax); X86Push eax])
               | S_LD x   ->
-		            env#local x;
-		            let s = allocate env stack in
-		              (s::stack, [X86Mov (M x, eax); X86Mov (eax, s)])
+                env#local x;
+                let s = allocate env stack in
+                  (s::stack, [X86Mov (M x, eax); X86Mov (eax, s)])
               | S_PLD n  ->
                 let s = allocate env stack in
                   (s::stack, [X86Mov (P n, s)])
               | S_ST x   ->
-		            env#local x;
-		            let s::stack' = stack in
-		              (stack', [X86Mov (s, eax); X86Mov (eax, M x)])
+                env#local x;
+                let s::stack' = stack in
+                  (stack', [X86Mov (s, eax); X86Mov (eax, M x)])
               | S_POP2   -> (stack, [X86Pop eax])
               | S_POP    ->
                   let s::stack' = stack in
@@ -150,7 +147,7 @@ module Compile =
               | S_RET    -> 
                 let x::stack' = stack in
                   (stack', [X86Mov (x, eax); X86Pop edi; X86Pop esi; X86Pop ecx; X86Mov (ebp, esp); X86Pop ebp; X86Ret])
-	            | S_FUN (f, a) -> 
+              | S_FUN (f, a) -> 
                 List.iter (fun x -> env#arg x) a;
                 (stack, [X86Lbl f; X86Push ecx; X86Push esi; X86Push edi])
               | S_CALL   ->
@@ -175,18 +172,23 @@ module Compile =
                    | R _ -> (p, [])
                    | _   -> (eax, [X86Mov (p, eax)])
                  in
-                 let (p, move) = move_param(r) in
+                 let back_param p = (if p = l then 
+                                    [] else
+                                    [X86Mov (p, l)])
+                 in
+                 let (p, move) = move_param(l) in
+                 let back = back_param(p) in
                  (l::stack', 
                  match op with
-                 | ("+"|"-"|"*") -> move @ [X86Binop (decode_op op, p, l)]
+                 | ("+"|"-"|"*") -> move @ [X86Binop (decode_op op, r, p)] @ back
                  | ("&&"|"!!")   -> [X86Mov(L 0, eax); X86Cmp (l, eax); X86Mov (L 0, edx); X86Set ("ne", edx);
                                      X86Cmp (r, eax); X86Set ("ne", eax); X86Binop (decode_op op, eax, edx); X86Mov(edx, l)]
                  | ("/"|"%")     -> [X86Mov (l, eax); X86Cltd; X86Div r] @ (match op with
                                                                          | "/" -> [X86Mov (eax, l)]
                                                                          | "%" -> [X86Mov (edx, l)])
-                 | _             -> move @ [X86Cmp (p, l); X86Mov (L 0, eax); X86Set (decode_op op, eax); X86Mov(eax, l)])
-	    in
-	    x86code @ compile stack' code'
+                 | _             -> move @ [X86Cmp (r, p); X86Mov (L 0, eax); X86Set (decode_op op, eax); X86Mov(eax, l)])
+      in
+      x86code @ compile stack' code'
       in
       compile [] code
 
@@ -205,7 +207,7 @@ let compile def stmt =
   let (!!) s = Buffer.add_string asm s in
   let (!)  s = !!s; !!"\n" in
   !"\t.text";
-  !"\t.globl\t_main";
+  !"\t.globl\tmain";
   let prologue env =
       !"\tpushl\t%ebp";
       !"\tmovl\t%esp,\t%ebp";
@@ -227,7 +229,6 @@ let build def stmt name =
   let outf = open_out (Printf.sprintf "%s.s" name) in
   Printf.fprintf outf "%s" (compile def stmt);
   close_out outf;
-
   match Sys.command (Printf.sprintf "gcc -m32 -o %s $RC_RUNTIME/runtime.o %s.s" name name) with
   | 0 -> ()
   | _ -> failwith "gcc failed with non-zero exit code"
