@@ -48,7 +48,9 @@ module Expr =
 
       primary:
         n:DECIMAL {Const n}
-      | x:funcs "->" args:(-"(" !(Util.list0 ori) -")") {EvalPtr (x, args)}
+      | x:funcs suf:(-("->") (-"(" !(Util.list0 ori) -")"))+ {
+          List.fold_left (fun x args -> EvalPtr (x, args)) x suf
+        }
       | funcs;
 
       funcs:

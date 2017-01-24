@@ -24,6 +24,6 @@ end
 m := read();
 n := read();
 x := &A;
-write ((x->(m, n))->(m, n));
-write ((x->(n, m))->(n, m));
-write ((((x->(m, m))->(n, n))->(m, n))->(m, n))
+write (x->(m, n)->(m, n));
+write (x->(n, m)->(n, m));
+write (x->(m, m)->(n, n)->(m, n)->(m, n))
