@@ -33,10 +33,10 @@ module Interpreter =
         in 
         let rec run' (state, stack, code) =
           (match code with
-            | []       -> 0
+            | []       -> Int 0
             | i::code' ->
               if i = S_RET then 
-                let (Int s)::stack' = stack in s
+                let s::stack' = stack in s
               else run'
                 (match i with
                 | S_POP2 -> (match stack with
@@ -63,8 +63,8 @@ module Interpreter =
                   let y::stack' = stack in
                   ((x, y)::state, stack', code')
                 | S_BINOP s ->
-                  let (Int y)::(Int x)::stack' = stack in
-                  (state, (Int (Interpreter.Expr.eval' x y s))::stack', code')
+                  let y::x::stack' = stack in
+                  (state, (Interpreter.Expr.eval' x y s)::stack', code')
                 | S_JMP s -> 
                   (state, stack, jmp s)
                 | S_CJMP (c, s) -> 
@@ -80,7 +80,7 @@ module Interpreter =
                       (try(
                       let fcode = List.find (fun ((S_FUN (f, _)::_)) -> f = n) fun_def in
                         let res = run'' ([], stack', fcode) in
-                          (state, (Int res)::stack', code')
+                          (state, res::stack', code')
                       )
                     with
                     |Not_found -> 
@@ -109,7 +109,7 @@ module Interpreter =
         in
         let res = run'' ([], [], main_code) in
     match res with
-    | 0 -> ()
+    | Int 0 -> ()
     | _ -> failwith "nonzero return code"
   end
 
@@ -124,7 +124,7 @@ module Compile =
       | Var   x -> [S_LD   x]
       | Const n -> [S_PUSH n]
       | Binop (s, x, y) -> expr x @ expr y @ [S_BINOP s]
-      | EvalPtr (n, p) -> List.concat (List.map (fun p -> expr p @ [S_SPUSH]) (List.rev p)) @ [S_LD n; S_CALL] @ (List.map (fun p -> S_POP2)p)
+      | EvalPtr (e, p) -> List.concat (List.map (fun p -> expr p @ [S_SPUSH]) (List.rev p)) @ expr e @ [S_CALL] @ (List.map (fun p -> S_POP2)p)
       | Call (n, p) -> List.concat (List.map (fun p -> expr p @ [S_SPUSH]) (List.rev p)) @ [S_PLD n; S_CALL] @ (List.map (fun p -> S_POP2)p)
 
     let counter =

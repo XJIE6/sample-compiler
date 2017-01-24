@@ -1,0 +1,29 @@
+fun A (m, n)
+begin
+  if m > n 
+  then
+  	return &C
+  elif m < n
+  then
+  	return &B
+  else
+  	return &A
+  fi
+end
+
+fun B (m, n)
+begin
+	return m + n
+end
+
+fun C (m, n)
+begin
+	return m - n
+end
+
+m := read();
+n := read();
+x := &A;
+write ((x->(m, n))->(m, n));
+write ((x->(n, m))->(n, m));
+write ((((x->(m, m))->(n, n))->(m, n))->(m, n))

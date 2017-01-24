@@ -14,7 +14,7 @@ module Expr =
     | Ptr     of string
     | Binop   of string * t * t
     | Call    of string * t list
-    | EvalPtr of string * t list
+    | EvalPtr of t * t list
 
   ostap (
       ori:
@@ -48,12 +48,15 @@ module Expr =
 
       primary:
         n:DECIMAL {Const n}
-      | "&" x:IDENT {Ptr x}
-      | x:IDENT arrow:("->")? args:(-"(" !(Util.list0 ori) -")")?
-                                                    { match (arrow, args) with
-                                                      | (Some _, Some args) -> EvalPtr (x, args)
-                                                      | (None, Some args) -> Call (x, args)
-                                                      | (None, None) -> Var x
+      | x:funcs "->" args:(-"(" !(Util.list0 ori) -")") {EvalPtr (x, args)}
+      | funcs;
+
+      funcs:
+        "&" x:IDENT {Ptr x}
+      | x:IDENT args:(-"(" !(Util.list0 ori) -")")?
+                                                    { match (args) with
+                                                      | (Some args) -> Call (x, args)
+                                                      | (None) -> Var x
                                                     }
       | -"(" ori -")"
 )
